@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 /**********************************************************************
  * Copyright (c) 2019
  *  Sang-Hoon Kim <sanghoonkim@ajou.ac.kr>
@@ -16,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #define MAX_NR_TOKENS 32	/* Maximum number of tokens in a command */
 #define MAX_TOKEN_LEN 64	/* Maximum length of single token */
@@ -55,21 +57,25 @@
  */
 static int parse_command(char *command, int *nr_tokens, char *tokens[])
 {
-	/* TODO
-	 * Followings are example code. You should delete them and implement 
-	 * your own code here
-	 */
-	tokens[0] = "hello";
-	tokens[1] = "world";
-	*nr_tokens = 2;
-
+	_Bool flag = false;
+	int i = 0; int j = 0; int k = 0;
+	while(i < sizeof(command)) {
+		if(command[k] == '\0'){
+			if (flag){
+				tokens[*nr_tokens][j] = '\0'; break;
+			}
+			else k++;
+		}
+		else{
+			flag = true;
+			tokens[*nr_tokens][j++] = command[k++];
+		}
+		i++;
+	}
+	*nr_tokens++;
 	return 0;
 }
 
-
-/***********************************************************************
- * The main function of this program. SHOULD NOT CHANGE THE CODE BELOW
- */
 int main(int argc, const char *argv[])
 {
 	char line[MAX_COMMAND] = { '\0' };
