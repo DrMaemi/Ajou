@@ -139,6 +139,12 @@ void fcfs_release(int resource_id)
 
 
 #include "sched.h"
+#define MAX_SPAN 9999
+bool new_process_arrived;
+
+static void fork(struct process * p){
+	new_process_arrived = true;
+}
 
 /***********************************************************************
  * FIFO scheduler
@@ -157,12 +163,12 @@ static struct process *fifo_schedule(void)
 	struct process *next = NULL;
 
 	/* You may inspect the situation by calling dump_status() at any time */
-	// dump_status();
+	//dump_status();
 
 	/**
-	 * When there was no process to run in the previous tick (so does
+	 * When there was no process to run in the * previous tick (so does
 	 * in the very beginning of the simulation), there will be
-	 * no @current process. In this case, pick the next without examining
+	 * no current process. In this case, pick the next without examining
 	 * the current process. Also, when the current process is blocked
 	 * while acquiring a resource, @current is (supposed to be) attached
 	 * to the waitqueue of the corresponding resource. In this case just
@@ -214,17 +220,46 @@ struct scheduler fifo_scheduler = {
  ***********************************************************************/
 static struct process *sjf_schedule(void)
 {
-	/**
-	 * Implement your own SJF scheduler here.
-	 */
-	return NULL;
+	struct process * next = NULL;
+	struct process * p;
+	//dump_status();
+
+	if (!current || current->status == PROCESS_WAIT){
+		goto pick_next;
+	}
+
+	if (current->age < current->lifespan){
+		return current;
+	}
+	
+pick_next:
+	if (!list_empty(&readyqueue)) {
+		int min = MAX_SPAN;
+		struct process* min_rt_process;
+
+		list_for_each_entry(p, &readyqueue, list) {
+			if (min > (p->lifespan)-(p->age)) {
+				min = (p->lifespan)-(p->age);
+				min_rt_process = p;
+			}
+		}
+
+		next = min_rt_process;
+
+		list_del_init(&next->list);
+	}
+
+	return next;
 }
 
 struct scheduler sjf_scheduler = {
 	.name = "Shortest-Job First",
 	.acquire = fcfs_acquire, /* Use the default FCFS acquire() */
 	.release = fcfs_release, /* Use the default FCFS release() */
-	.schedule = NULL,		 /* TODO: Assign sjf_schedule()
+	.initialize = fifo_initialize,
+	.finalize = fifo_finalize,
+	.schedule = sjf_schedule,		 /* TODO: Assign sjf_schedule()
+												 i
 								to this function pointer to activate
 								SJF in the system */
 };
@@ -233,10 +268,54 @@ struct scheduler sjf_scheduler = {
 /***********************************************************************
  * SRTF scheduler
  ***********************************************************************/
+static struct process *srtf_schedule(void)
+{
+	struct process * next = NULL;
+	
+	if ((new_process_arrived) || (!current || current->status == PROCESS_WAIT)) 
+	{
+		goto pick_next;
+	}
+
+	if (current->age < current->lifespan) {
+		return current;
+	}
+
+
+pick_next:
+	if (current)
+		if (current->age < current->lifespan)
+			list_move_tail(&current->list, &readyqueue);
+
+	if (!list_empty(&readyqueue)) {
+		int min = MAX_SPAN;
+		struct process * min_rt_process;
+		struct process * p;
+
+		list_for_each_entry(p, &readyqueue, list) {
+			if (min > (p->lifespan)-(p->age)) {
+				min = (p->lifespan)-(p->age);
+				min_rt_process = p;
+			}
+		}
+		next = min_rt_process;
+
+		list_del_init(&next->list);
+		new_process_arrived = false;
+	}
+	
+	return next;
+}
+
+
 struct scheduler srtf_scheduler = {
 	.name = "Shortest Remaining Time First",
 	.acquire = fcfs_acquire, /* Use the default FCFS acquire() */
 	.release = fcfs_release, /* Use the default FCFS release() */
+	.initialize = fifo_initialize,
+	.finalize = fifo_finalize,
+	.schedule = srtf_schedule,
+	.forked = fork,
 	/* You need to check the newly created processes to implement SRTF.
 	 * Use @forked() callback to mark newly created processes */
 	/* Obviously, you should implement srtf_schedule() and attach it here */
@@ -246,10 +325,37 @@ struct scheduler srtf_scheduler = {
 /***********************************************************************
  * Round-robin scheduler
  ***********************************************************************/
+static struct process *rr_schedule(void)
+{
+	struct process * next = NULL;
+
+	if (!list_empty(&readyqueue)) {
+		if (current)
+			if (current->age < current->lifespan)
+				list_move_tail(&current->list, &readyqueue);
+
+		next = list_first_entry(&readyqueue, struct process, list);
+
+		list_del_init(&next->list);
+
+		return next;
+	}
+
+	if (current->age < current->lifespan) {
+		return current;
+	}
+
+	return next;
+}
+
+
 struct scheduler rr_scheduler = {
 	.name = "Round-Robin",
 	.acquire = fcfs_acquire, /* Use the default FCFS acquire() */
 	.release = fcfs_release, /* Use the default FCFS release() */
+	.initialize = fifo_initialize,
+	.finalize = fifo_finalize,
+	.schedule = rr_schedule,
 	/* Obviously, you should implement rr_schedule() and attach it here */
 };
 
