@@ -284,7 +284,8 @@ static struct process *srtf_schedule(void)
 
 pick_next:
 	if (current)
-		if (current->age < current->lifespan)
+		if ((current->age < current->lifespan) &&
+				(current->status != PROCESS_WAIT))
 			list_move_tail(&current->list, &readyqueue);
 
 	if (!list_empty(&readyqueue)) {
@@ -331,9 +332,10 @@ static struct process *rr_schedule(void)
 
 	if (!list_empty(&readyqueue)) {
 		if (current)
-			if (current->age < current->lifespan)
+			if ((current->age < current->lifespan) && 
+					(current->status != PROCESS_WAIT))
 				list_move_tail(&current->list, &readyqueue);
-
+	
 		next = list_first_entry(&readyqueue, struct process, list);
 
 		list_del_init(&next->list);
@@ -363,8 +365,65 @@ struct scheduler rr_scheduler = {
 /***********************************************************************
  * Priority scheduler
  ***********************************************************************/
+static struct process *prio_schedule(void)
+{
+	struct process * next = NULL;
+	dump_status();
+
+	if (!list_empty(&readyqueue)) {
+		if (current)
+			if ((current->age < current->lifespan) &&
+					(current->status != PROCESS_WAIT))
+				list_move_tail(&current->list, &readyqueue);
+
+		struct process * highest_prio_process;
+		struct process * p;
+		
+		next = list_first_entry(&readyqueue, struct process, list);
+		unsigned int highest_prio = next->prio;
+
+		list_for_each_entry(p, &readyqueue, list) {
+			//printf("highest_prio = %d, p->prio = %d\n", highest_prio, p->prio);
+			if (highest_prio < p->prio) {
+				highest_prio = p->prio;
+				//printf("after highest_prio = p->prio. highest_prio = %d, p->prio = %d\n", highest_prio, p->prio);
+				next = p;
+			}
+		}
+
+		list_del_init(&next->list);
+
+		return next;
+	}
+
+	if (current->age < current->lifespan)
+		return current;
+
+	return next;
+}
+
+bool prio_acquire(int resource_id)
+{
+	struct resource *r = resources + resource_id;
+
+	if (!r->owner){
+		r->owner = current;
+		return true;
+	}
+
+	current->status = PROCESS_WAIT;
+
+	return false;
+}
+
+
 struct scheduler prio_scheduler = {
 	.name = "Priority",
+	.acquire = fcfs_acquire,
+	.release = fcfs_release,
+	.initialize = fifo_initialize,
+	.finalize = fifo_finalize,
+	.schedule = prio_schedule,
 	/**
 	 * Implement your own acqure/release function to make priority
 	 * scheduler correct.
