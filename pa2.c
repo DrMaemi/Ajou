@@ -368,7 +368,6 @@ struct scheduler rr_scheduler = {
 static struct process *prio_schedule(void)
 {
 	struct process * next = NULL;
-	dump_status();
 
 	if (!list_empty(&readyqueue)) {
 		if (current)
@@ -383,10 +382,8 @@ static struct process *prio_schedule(void)
 		unsigned int highest_prio = next->prio;
 
 		list_for_each_entry(p, &readyqueue, list) {
-			//printf("highest_prio = %d, p->prio = %d\n", highest_prio, p->prio);
 			if (highest_prio < p->prio) {
 				highest_prio = p->prio;
-				//printf("after highest_prio = p->prio. highest_prio = %d, p->prio = %d\n", highest_prio, p->prio);
 				next = p;
 			}
 		}
@@ -402,7 +399,7 @@ static struct process *prio_schedule(void)
 	return next;
 }
 
-bool prio_acquire(int resource_id)
+bool pip_acquire(int resource_id)
 {
 	struct resource *r = resources + resource_id;
 
@@ -412,8 +409,45 @@ bool prio_acquire(int resource_id)
 	}
 
 	current->status = PROCESS_WAIT;
+	
+	if (r->owner->prio < current->prio)
+		r->owner->prio = current->prio;
+
+	list_add_tail(&current->list, &r->waitqueue);
 
 	return false;
+}
+
+void pip_release(int resource_id)
+{
+	struct resource *r = resources + resource_id;
+
+	assert(r->owner == current);
+
+	r->owner->prio = r->owner->prio_orig;
+	r->owner = NULL;
+
+	if (!list_empty(&r->waitqueue)) {
+		struct process * highest_prio_process =
+			list_first_entry(&r->waitqueue, struct process, list);
+		unsigned int highest_prio = highest_prio_process->prio;
+		struct process * p;
+
+		list_for_each_entry(p, &r->waitqueue, list) {
+			if (highest_prio < p->prio) {
+				highest_prio = p->prio;
+				highest_prio_process = p;
+			}
+		}
+		
+		assert(highest_prio_process->status == PROCESS_WAIT);
+
+		list_del_init(&highest_prio_process->list);
+
+		highest_prio_process->status = PROCESS_READY;
+
+		list_add_tail(&highest_prio_process->list, &readyqueue);
+	}
 }
 
 
@@ -437,6 +471,11 @@ struct scheduler prio_scheduler = {
  ***********************************************************************/
 struct scheduler pip_scheduler = {
 	.name = "Priority + Priority Inheritance Protocol",
+	.acquire = pip_acquire,
+	.release = pip_release,
+	.initialize = fifo_initialize,
+	.finalize = fifo_finalize,
+	.schedule = prio_schedule,
 	/**
 	 * Implement your own acqure/release function too to make priority
 	 * scheduler correct.
