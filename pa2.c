@@ -375,7 +375,6 @@ static struct process *prio_schedule(void)
 					(current->status != PROCESS_WAIT))
 				list_move_tail(&current->list, &readyqueue);
 
-		struct process * highest_prio_process;
 		struct process * p;
 		
 		next = list_first_entry(&readyqueue, struct process, list);
