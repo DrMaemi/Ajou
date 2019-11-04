@@ -377,12 +377,11 @@ static struct process *prio_schedule(void)
 
 		struct process * p;
 		
-		next = list_first_entry(&readyqueue, struct process, list);
-		unsigned int highest_prio = next->prio;
+		int highest_prio = -1;
 
 		list_for_each_entry(p, &readyqueue, list) {
-			if (highest_prio < p->prio) {
-				highest_prio = p->prio;
+			if (highest_prio < (int)p->prio) {
+				highest_prio = (int)p->prio;
 				next = p;
 			}
 		}
@@ -427,14 +426,14 @@ void pip_release(int resource_id)
 	r->owner = NULL;
 
 	if (!list_empty(&r->waitqueue)) {
-		struct process * highest_prio_process =
-			list_first_entry(&r->waitqueue, struct process, list);
-		unsigned int highest_prio = highest_prio_process->prio;
+		struct process * highest_prio_process;
+		int highest_prio = -1;
+
 		struct process * p;
 
 		list_for_each_entry(p, &r->waitqueue, list) {
-			if (highest_prio < p->prio) {
-				highest_prio = p->prio;
+			if (highest_prio < (int)p->prio) {
+				highest_prio = (int)p->prio;
 				highest_prio_process = p;
 			}
 		}
