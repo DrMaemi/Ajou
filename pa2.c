@@ -452,7 +452,7 @@ void pip_release(int resource_id)
 struct scheduler prio_scheduler = {
 	.name = "Priority",
 	.acquire = fcfs_acquire,
-	.release = fcfs_release,
+	.release = pip_release,
 	.initialize = fifo_initialize,
 	.finalize = fifo_finalize,
 	.schedule = prio_schedule,
