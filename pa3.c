@@ -137,5 +137,44 @@ bool handle_page_fault(enum memory_access_type rw, unsigned int vpn)
  */
 void switch_process(unsigned int pid)
 {
+	if (current->pid == pid) return;
+	struct process *next;
+	struct process *p;
+	if (!list_empty(&processes)) {
+		list_for_each_entry(p, &processes, list) {
+			if (p->pid == pid) {
+				next = p;
+				printf("process * next 's pid = %d\n", next->pid);
+				goto pick_next;
+			}
+		}
+	}
+	//There is no process whose pid is matched
+	struct process *new_process;
+	new_process = malloc(sizeof(struct process));
+	new_process->pid = pid;
+	for (int i = 0; i < NR_PTES_PER_PAGE; i++) {
+		struct pte_directory *pd = current->pagetable.outer_ptes[i];
+		if (!pd) continue;
+		struct pte_directory *tmp_directory;
+		tmp_directory = malloc(sizeof(struct pte_directory));
+		for (int j = 0; j < NR_PTES_PER_PAGE; j++) {
+			struct pte *pte = &pd->ptes[j];
+			struct pte tmp;
+			tmp.valid = pte->valid;
+			tmp.writable = false;
+			pte->writable = false;
+			tmp.pfn = pte->pfn;
+			tmp_directory->ptes[j] = tmp;
+		}
+		new_process->pagetable.outer_ptes[i] = tmp_directory;
+	}
+	list_move_tail(&current->list, &processes);
+	current = new_process; return;
+pick_next:
+	list_del_init(&next->list);
+	list_move_tail(&current->list, &processes);
+	current = next;
+	
 }
 
