@@ -98,13 +98,12 @@ bool handle_page_fault(enum memory_access_type rw, unsigned int vpn)
 	if (!current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]) {
 		struct pte_directory *tmp_directory;
 		tmp_directory = malloc(sizeof(struct pte_directory));
-		for (int i = 0; i < NR_PTES_PER_PAGE; i++) {
-			struct pte tmp;
-			tmp.valid = false;
-			tmp.writable = false;
-			tmp.pfn = 0;
+		struct pte tmp;
+		tmp.valid = false;
+		tmp.writable = false;
+		tmp.pfn = 0;
+		for (int i = 0; i < NR_PTES_PER_PAGE; i++) 
 			tmp_directory->ptes[i] = tmp;
-		}
 		tmp_directory->ptes[vpn % NR_PTES_PER_PAGE].valid = true;
 		tmp_directory->ptes[vpn % NR_PTES_PER_PAGE].writable = true;
 		tmp_directory->ptes[vpn % NR_PTES_PER_PAGE].pfn = alloc_page(); 
@@ -183,7 +182,6 @@ void switch_process(unsigned int pid)
 pick_next:
 	list_add_tail(&current->list, &processes);
 	list_del_init(&next->list);
-	current = next;
-	
+	current = next;	
 }
 
