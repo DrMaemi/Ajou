@@ -144,7 +144,6 @@ void switch_process(unsigned int pid)
 		list_for_each_entry(p, &processes, list) {
 			if (p->pid == pid) {
 				next = p;
-				printf("process * next 's pid = %d\n", next->pid);
 				goto pick_next;
 			}
 		}
@@ -169,11 +168,12 @@ void switch_process(unsigned int pid)
 		}
 		new_process->pagetable.outer_ptes[i] = tmp_directory;
 	}
-	list_move_tail(&current->list, &processes);
+	list_add_tail(&current->list, &processes);
 	current = new_process; return;
+
 pick_next:
+	list_add_tail(&current->list, &processes);
 	list_del_init(&next->list);
-	list_move_tail(&current->list, &processes);
 	current = next;
 	
 }
