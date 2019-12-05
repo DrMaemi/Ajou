@@ -66,12 +66,9 @@ bool translate(enum memory_access_type rw, unsigned int vpn, unsigned int *pfn)
 	/*** DO NOT MODIFY THE PAGE TABLE IN THIS FUNCTION ***/
 	if (!current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT])
 		return false;
-	struct pte pte = current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]->ptes[vpn % NR_PTES_PER_PAGE];
-	if (rw == WRITE)
-		if (!pte.writable) {
-			printf("Write bit is false\n");
-			return false;
-		}
+	struct pte *pte = &(current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]->ptes[vpn % NR_PTES_PER_PAGE]);
+	if (!pte->valid)
+		return false;
 	*pfn = current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]->ptes[vpn % NR_PTES_PER_PAGE].pfn;
 	return true;
 }
@@ -112,15 +109,15 @@ bool handle_page_fault(enum memory_access_type rw, unsigned int vpn)
 		current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT] = tmp_directory;
 		return true;
 	}
-	struct pte pte = current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]->ptes[vpn % NR_PTES_PER_PAGE];
-	if (rw == WRITE)
-		if (!pte.writable) {
-			pte.pfn = alloc_page();
-			pte.writable = true;
-			return true;
-		}
+	struct pte *pte = &(current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]->ptes[vpn % NR_PTES_PER_PAGE]);
+	if (!pte->valid){
+		pte->valid = true;
+		pte->writable = true;
+		pte->pfn = alloc_page();
+		return true;
+	}
 	
-	return true;
+	return false;
 }
 
 
