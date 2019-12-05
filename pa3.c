@@ -69,6 +69,8 @@ bool translate(enum memory_access_type rw, unsigned int vpn, unsigned int *pfn)
 	struct pte *pte = &(current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]->ptes[vpn % NR_PTES_PER_PAGE]);
 	if (!pte->valid)
 		return false;
+	if (rw == WRITE && !pte->writable)
+		return false;
 	*pfn = current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]->ptes[vpn % NR_PTES_PER_PAGE].pfn;
 	return true;
 }
@@ -110,8 +112,15 @@ bool handle_page_fault(enum memory_access_type rw, unsigned int vpn)
 		return true;
 	}
 	struct pte *pte = &(current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]->ptes[vpn % NR_PTES_PER_PAGE]);
+
 	if (!pte->valid){
 		pte->valid = true;
+		pte->writable = true;
+		pte->pfn = alloc_page();
+		return true;
+	}
+
+	if (rw == WRITE && !pte->writable) {
 		pte->writable = true;
 		pte->pfn = alloc_page();
 		return true;
