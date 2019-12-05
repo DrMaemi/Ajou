@@ -63,10 +63,13 @@ extern unsigned int alloc_page(void);
  */
 bool translate(enum memory_access_type rw, unsigned int vpn, unsigned int *pfn)
 {
+	unsigned int outer_index = vpn >> PTES_PER_PAGE_SHIFT;
+	unsigned int index = vpn % NR_PTES_PER_PAGE;
+
 	/*** DO NOT MODIFY THE PAGE TABLE IN THIS FUNCTION ***/
-	if (!current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT])
+	if (!current->pagetable.outer_ptes[outer_index])
 		return false;
-	struct pte *pte = &(current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]->ptes[vpn % NR_PTES_PER_PAGE]);
+	struct pte *pte = &(current->pagetable.outer_ptes[outer_index]->ptes[index]);
 	if (!pte->valid)
 		return false;
 	if (rw == WRITE && !pte->writable)
@@ -95,7 +98,10 @@ bool translate(enum memory_access_type rw, unsigned int vpn, unsigned int *pfn)
  */
 bool handle_page_fault(enum memory_access_type rw, unsigned int vpn)
 {
-	if (!current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]) {
+	unsigned int outer_index = vpn >> PTES_PER_PAGE_SHIFT;
+	unsigned int index = vpn % NR_PTES_PER_PAGE;
+
+	if (!current->pagetable.outer_ptes[outer_index]) {
 		struct pte_directory *tmp_directory;
 		tmp_directory = malloc(sizeof(struct pte_directory));
 		struct pte tmp;
@@ -104,13 +110,13 @@ bool handle_page_fault(enum memory_access_type rw, unsigned int vpn)
 		tmp.pfn = 0;
 		for (int i = 0; i < NR_PTES_PER_PAGE; i++) 
 			tmp_directory->ptes[i] = tmp;
-		tmp_directory->ptes[vpn % NR_PTES_PER_PAGE].valid = true;
-		tmp_directory->ptes[vpn % NR_PTES_PER_PAGE].writable = true;
-		tmp_directory->ptes[vpn % NR_PTES_PER_PAGE].pfn = alloc_page(); 
-		current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT] = tmp_directory;
+		tmp_directory->ptes[index].valid = true;
+		tmp_directory->ptes[index].writable = true;
+		tmp_directory->ptes[index].pfn = alloc_page(); 
+		current->pagetable.outer_ptes[outer_index] = tmp_directory;
 		return true;
 	}
-	struct pte *pte = &(current->pagetable.outer_ptes[vpn >> PTES_PER_PAGE_SHIFT]->ptes[vpn % NR_PTES_PER_PAGE]);
+	struct pte *pte = &(current->pagetable.outer_ptes[outer_index]->ptes[index]);
 
 	if (!pte->valid){
 		pte->valid = true;
