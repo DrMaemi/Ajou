@@ -1,0 +1,276 @@
+#include "implementation.oil"
+
+CPU ATMEL_AT91SAM7S256
+{
+	OS LEJOS_OSEK
+	{
+		STATUS = EXTENDED;
+		STARTUPHOOK = FALSE;
+		ERRORHOOK = FALSE;
+		SHUTDOWNHOOK = FALSE;
+		PRETASKHOOK = FALSE;
+    	POSTTASKHOOK = FALSE;
+    	USEGETSERVICEID = FALSE;
+    	USEPARAMETERACCESS = FALSE;
+    	USERESSCHEDULER = FALSE;
+	};
+
+	/* Definition of application mode */
+	APPMODE appmode1{};
+
+	/* Definition of OSEK Alarm Counter */
+	COUNTER SysTimerCnt
+	{
+    	MINCYCLE = 1;
+    	MAXALLOWEDVALUE = 10000;
+    	TICKSPERBASE = 1; /* One tick is equal to 1msec */
+	};
+
+	/******* EVENTS *******/
+	EVENT DriveForward		{ MASK = AUTO; };
+	EVENT DriveBackward 	{ MASK = AUTO; };
+	EVENT TurnAxis 			{ MASK = AUTO; };
+	EVENT TurnLeft 			{ MASK = AUTO; };
+	EVENT TurnRight 		{ MASK = AUTO; };
+	EVENT FastSpeed 		{ MASK = AUTO; };
+	EVENT SlowSpeed 		{ MASK = AUTO; };
+	EVENT FastBrake 		{ MASK = AUTO; };
+	EVENT SlowBrake 		{ MASK = AUTO; };
+	EVENT DoBrake 			{ MASK = AUTO; };
+	EVENT SearchParkingSpace { MASK = AUTO; };
+	EVENT DoParking			{ MASK = AUTO; };
+	EVENT PlayElise			{ MASK = AUTO; };
+	
+
+	/***** RESOURCES *****/
+	RESOURCE VELOCITY
+	{
+		RESOURCEPROPERTY = STANDARD;
+	};
+	RESOURCE PARKING
+	{
+		RESOURCEPROPERTY = STANDARD;
+	};
+
+	/******* TASKS *******/
+	TASK TaskInitialize
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 11;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+	};
+	TASK TaskLCD
+	{
+		AUTOSTART = FALSE;
+		PRIORITY = 1;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+	};
+	TASK TaskControl
+	{
+		AUTOSTART = FALSE;
+		PRIORITY = 9;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		RESOURCE = PARKING;
+	};
+
+	/* DRIVE */
+	TASK TaskDriveForward
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 3;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = DriveForward;
+		RESOURCE = VELOCITY;
+	};
+	TASK TaskDriveBackward
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 3;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = DriveBackward;
+		RESOURCE = VELOCITY;
+	};
+
+	/* STEERING */
+	TASK TaskTurnAxis
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 3;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = TurnAxis;
+	};
+	TASK TaskTurnLeft
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 5;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = TurnLeft;
+	};
+	TASK TaskTurnRight
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 5;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = TurnRight;
+	};
+
+	/* SPEED MODE */
+	TASK TaskFastSpeed
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 3;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = FastSpeed;
+	};
+	TASK TaskSlowSpeed
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 3;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = SlowSpeed;
+	};
+
+	/* BRAKE MODE */
+	TASK TaskFastBrake
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 3;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = FastBrake;
+	};
+	TASK TaskSlowBrake
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 3;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = SlowBrake;
+	};
+
+	/* DO BRAKE */
+	TASK TaskDoBrake
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 10;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = DoBrake;
+		RESOURCE = VELOCITY;
+	};
+
+	/* PARKING */
+	TASK TaskSearchParkingSpace
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 4;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = DriveForward;
+		RESOURCE = VELOCITY;
+		RESOURCE = PARKING;
+	};
+
+	TASK TaskDoParking
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 4;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = DriveForward;
+		RESOURCE = VELOCITY;
+		RESOURCE = PARKING;
+	};
+
+	TASK TaskPlayElise
+	{
+		AUTOSTART = TRUE { APPMODE = appmode1; };
+		PRIORITY = 4;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		EVENT = DriveForward;
+		RESOURCE = VELOCITY;
+		RESOURCE = PARKING;
+	};
+
+	/* Adjust Yield */
+	TASK TaskAdjustYield
+	{
+		AUTOSTART = FALSE;
+		PRIORITY = 2;
+		ACTIVATION = 1;
+		SCHEDULE = FULL;
+		STACKSIZE = 512;
+		RESOURCE = VELOCITY;
+	};
+
+	/******* ALARMS *******/
+	ALARM cyclic_alarm_TaskLCD
+	{
+    	COUNTER = SysTimerCnt;
+    	ACTION = ACTIVATETASK
+		{
+			TASK = TaskLCD;
+		};
+		AUTOSTART = TRUE
+		{
+			ALARMTIME = 1;
+			CYCLETIME = 500; /* executed every 500 msec */
+			APPMODE = appmode1;
+		};
+	};
+	ALARM cyclic_alarm_TaskControl // Event Dispatcher
+	{
+    	COUNTER = SysTimerCnt;
+    	ACTION = ACTIVATETASK
+		{
+			TASK = TaskControl;
+		};
+		AUTOSTART = TRUE
+		{
+			ALARMTIME = 1;
+			CYCLETIME = 25; /* executed every 25 msec */
+			APPMODE = appmode1;
+		};
+	};
+	ALARM cyclic_alarm_TaskAdjustYield // Event Dispatcher
+	{
+    	COUNTER = SysTimerCnt;
+    	ACTION = ACTIVATETASK
+		{
+			TASK = TaskAdjustYield;
+		};
+		AUTOSTART = TRUE
+		{
+			ALARMTIME = 1;
+			CYCLETIME = 100; /* executed every 100 msec */
+			APPMODE = appmode1;
+		};
+	};
+};
