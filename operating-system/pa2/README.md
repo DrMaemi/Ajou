@@ -1,66 +1,103 @@
-## Project #3: Virtual Memory Simulator
+## Project #2: Simulating Processor Schedulers
 
-### *** Due on 24:00, December 15 (Sunday) ***
+### *** Due on 24:00, November 10 (Sunday) ***
 
 
 ### Goal
-Implement a mini virtual memory system simulator.
+
+During the class, we have learned various process scheduling policies and examined their properties.
+To better understand them, you will implement SJF, SRTF, round-robin, priority, and priority + PIP scheduling policies on an educational scheduler framework that imitates the scheduler core of modern operating systems.
+
 
 
 ### Problem Specification
-- The framework provides an environment to simulate virtual memory and paging. Your task is to implement the key components of the simulator.
 
-- In the simulator, we can have multiple processes in the system. Likewise PA2, each process is abstracted to simple `struct process`, and `struct process *current` points to the currently running process.
-`struct list_head processes` is a list to be used as the ready queue of the system. These components leverage the `list_head` that was introduced in the PA2. So, you may utilize your experience from PA2.
+- The framework maintains time using `ticks` variable. It monotonically increases by 1 when a scheduling is happened. You may read this varible but should not modify it.
 
-- The framework accepts three main commands, which are `read`, `write`, and `switch`, and two supplementary commands, which are `show` and `exit`.
+- In order to do something with scheduling, we need processes first. The framework accepts a process description file as the argument, which describes the processes to simulate. Following example shows an example description file for two processes (process 1 and process 2).
 
-- `read` and `write` is to instruct the system to simulate the memory access. These commands are followed by VPN (virtual page number). For example;
-  ```
-	>> read 10    /* Read VPN 10 */
-	>> write 0x10 /* Write to VPN 0x10 */
+	```
+	process 1
+		start 0
+		lifespan 4
+		prio 0
+	end
+
+	process 2
+		start 5
+		lifespan 10
+		prio 10
+	end
 	```
 
-- Each read and write request will be processed by the framework, and call `translate()` function to simulate the address translation in MMU.
-Complete the function to translate VPN to PFN (page frame number) by walking through the page table of the current process.
-If the given VPN cannot be translated or accessed using the current page table, return false to trigger the page fault mechanism in the framework.
-*You should not alter/allocate/fixup the page table in this function* but just try the address translation with the current page table.
+- The framework will start the process 1 at tick 0 (`start 0`) and run it for 4 ticks (`lifespan 4`). The process will be given priority value 0 by default, and you may specify the priority using `prio` property (`prio 0`). The larger priority value implies the higher priority of processes. Likewise, process 2 will be kicked in at time tick 5 and run for 10 ticks with priority 10. This information is also shown at the beginning of the program execution as follow.
+	```
+	- Process 1: Forked at tick 0 and run for 4 ticks with initial priority 0
+	- Process 2: Forked at tick 5 and run for 10 ticks with initial priority 10
+	```
 
-- When the translation is successful (i.e., return `true` from `translate()`, the framework will print out the translation result and continue accepting the command from the prompt.
+- The framework will realize the processes using `struct process` defined in `process.h`. See the file for the fields that describes processes in the system. Note that some variables are forbidden to access.
 
-- When the translation is unsuccessful, it is equivalent to issue a page fault in MMU. The framework will call `handle_page_fault()` to initiate the page fault handling. In this function, you need to inspect the situation causing the page fault, and resolve the fault accordingly. Thus, you may modify/allocate/fixup the page table in this function. Note that the entire virtual address space is supposed to be writable.
+- At any moment, `struct process *current` defined as a global varibale points to the process that is currently running. You can use the variable as you need to access the current process.
 
-- You may switch the currently running process with `switch` command. Enter the command followed by the process id to switch, and then, the framework will call `switch_process()` to handle the request. Find the target process from the `processes` list, and if exists, do the context switching by replacing `@current` with it.
+- The framework only implements scheduling mechanisms (e.g., replacing the current, counting ticks, ... ), and it interacts with scheduling *policies* that are defined with `struct scheduler` in `sched.h`. `struct scheduler` is a collection of function pointers. The framework will call the functions to ask the scheduling policy for making decisions. Have a look at `fifo_scheduler` in `pa2.c` which implements a FIFO scheduler. You may also find other `scheduler` instances in `pa2.c` that are waiting for your implementation.
 
-- If the target process does not exist, you need to fork a child process from @current. This implies you should allocate `struct process` for the child process and initialize it (including page table) accordingly. To duplicate the parent's address space, set up the PTE in the child's page table to map to the same PFN of the parent. You need to set up PTE property bits to support copy-on-write.
+- `struct process *(*schedule)(void)` is the key function for the scheduling policy. The framework invokes the function whenever it needs a process to schedule next. The function should return a process to run next or NULL to indicate there is no process to run. See `fifo_schedule()` in `pa2.c`.
 
-- `show` prompt command shows the page table of the current process.
+- The framework has the ready queue `struct list_head readyqueue` which is supposed to keep the list of processes that are ready to run. It is defined as a list head, which is borrowed from the Linux kernel. You can easily find examples of using the list head from Internet (see tips below). Note that the current process are *NOT* supposed to be in the ready queue.
+
+- The system has a number of system resources (32 in this PA) that can be assigned to processes exclusively. `struct resource` defines the system resources in `resource.h`. The process may ask the framework to acquire a resoruce and release it after use. Such a resource use is specified in the process description file using `acquire` property. For example, `acquire 1 4 2` means the process will require resource #1 at time tick 4 for 2 ticks. Have a look at `testcases/resources` for an example.
+
+- When the framework gets the resource acquisition request, it calls `acquire()` function of the scheduler. Similarly, the framework calls `release()` function when the process releases a resource. You may find default FCFS acquire/release functions in `pa2.c` and the FIFO scheduler uses them to allocate resources. You may define your own acquire/release functions and associate them to your scheduler implementation to make a correct scheduling decision.
+
+- The framework is waiting for your implementation of shortest-job first (SJF) scheduler, shortest-remaining time first (SRTF) scheduler, round-robin scheduler, priority-based scheduler, and priority-based scheduler with priority inheritance protocol (PIP). You can start the program with a scheduler option and the framework will select the corresponding scheduler automatically. Check the options by running the program (`sched`) without any option.
+
+- When a process is forked by the framework, the `forked()` callback function will be invoked. Similarly, when the process is done, `exiting()` callback function is called.
+
+- When you implement PIP, make sure that the priority of a process is set properly when it releases a resource. There are complicated cases to implement PIP.
+	- More than one processes with different priority values can wait for the releasing resource. Imagine a case where one process is holding one resource type, and other process is to acquire the same resource type. And then, another process with higher (or lower) priority is to acquire the resource type again, and then ...
+	- Many processes with different priority values are waiting for different resources held by a process.
+	You will get the full points for PIP if and only if these cases are all handled properly. Hint: calculate the *current* priority of the releasing process by checking resource acquitision status.
+
+
+- (Updated Oct 30) The priority scheduler and the priority scheduler with PIP should be based on the round-robin; If two or more processes are with the same priority, they should be scheduled in the round-robin way (switching them on each tick).
 
 
 ### Tips and Restriction
-- Implement features in an incremental way; implement the basic translation function first and get used to the page table/PTE manipulation first. And then move to implement the fork by duplicating the page table contents. You need to manipulate both PTEs of parent and child to support copy-on-write properly.
-- As explained above, the entire address space is supposed to be writable. So, be careful to handle `writable` bit in the page table when you attach a page or shar it.
-- Likewise previous PAs, printing out to stdout does not influence on the grading. So, feel free to print out debug message using `printf`.
+
+- The grading system only examines the messages printed out to stderr. Thus, you can use printf as you want.
+- Use `dump_status()` function to see the situation.
+- It is recommended to build a toy program to practice list manipulation with list head. The list head looks very weird at first, but it is really powerful and handy library once you get used to it. Make sure you are using `list_for_*_safe` variants if an entry is removed from the list during the iteration, and `list_del_init` to remove an entry from the list. (Do some Internet search for their differences)
+	- Introduction: https://kernelnewbies.org/FAQ/LinkedLists
+	- Samples in sched.c
+	- Kernel API manual: https://www.kernel.org/doc/html/v4.15/core-api/kernel-api.html
+	- Advanced explanation: https://medium.com/@414apache/kernel-data-structures-linkedlist-b13e4f8de4bf
+- Do not try to forge the result using fprintf.
+
 
 
 ### Submission / Grading
+
 - Use [PAsubmit](https://sslab.ajou.ac.kr/pasubmit) for submission
 	- 320 pts + 10 pts 
+	- Some testcases are hidden and only show the final decision (i.e., pass/fail);
 
-- Code: ***pa3.c*** (300 pts)
-  - Address translation (50 pts)
-	- Fork (100 pts)
-	- Copy-on-Write (150 pts)
+- Code: ***pa2.c*** (300 pts)
+	- SJF scheduler: 20
+	- SRTF scheduler: 50
+	- RR scheduler:  50
+	- Priority scheduler: 50
+	- Priority scheduler + PIP: 130
 
 - Document: One PDF document (20 pts) including;
-	- Description how you implement address translation, fork, and copy-on-write
+	- Description how each scheduling policy is implemented
 	- Lesson learned (if you have any)
 	- No more than three pages
-	- Otherwise you will get 0 pts for the report
+	- Otherwise you will get 0 Pts for the report
 
 - Git repository (10 pts)
 	- Register http URL and with a deploy token and password.
 	- Start the repository by cloning this repository.
-	- Make sure the token is valid through December 20 (due + 4 slip days + 1 day)
+	- Make sure the token is valid through November 15 (due + 4 slip days + 1 day)
 
 - WILL NOT ANSWER THE QUESTIONS ABOUT THOSE ALREADY SPECIFIED ON THE HANDOUT.

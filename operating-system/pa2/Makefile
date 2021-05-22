@@ -1,12 +1,12 @@
-TARGET	= vm
+TARGET	= sched
 CFLAGS	= -g -c -D_POSIX_C_SOURCE -Iinclude
 CFLAGS += -std=c99 -Wimplicit-function-declaration -Werror
 CFLAGS += # Add your own cflags here if necessary
 LDFLAGS	=
 
-all: vm
+all: sched
 
-vm: vm.o parser.o pa3.o
+sched: pa2.o parser.o sched.o
 	gcc $(LDFLAGS) $^ -o $@
 
 %.o: %.c
